@@ -1149,6 +1149,31 @@ async def flow_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = bot.cmd_flow(symbol=symbol)
     await update.message.reply_text(message, parse_mode='HTML')
 
+async def log_market_data_job(context: ContextTypes.DEFAULT_TYPE):
+    """Background job to log indicator data every 4 hours"""
+    bot = LegendXBot()
+    snapshot = bot.collect_snapshot(symbol="BTC")
+    
+    if not snapshot:
+        print("[LOGGER] Failed to fetch data for CSV.")
+        return
+    
+    # Ensure data directory exists
+    data_dir = Path("data")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    csv_file = data_dir / "market_log.csv"
+    
+    # Check if file exists to write headers
+    file_exists = csv_file.exists()
+    
+    with open(csv_file, mode='a', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=snapshot.keys())
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(snapshot)
+        
+    print(f"[LOGGER] Data saved to CSV at {snapshot['timestamp']}")
+
 def main():
     """Start the Telegram bot using Webhooks"""
     
@@ -1185,7 +1210,12 @@ def main():
     application.add_handler(CommandHandler("map", map_command))
     application.add_handler(CommandHandler("fgainers", fgainers_command))
     application.add_handler(CommandHandler("flow", flow_command))
-    
+
+    # --- ADD BACKGROUND LOGGER JOB ---
+    job_queue = application.job_queue
+    # Run every 14400 seconds (4 hours), first run 60 seconds after boot
+    job_queue.run_repeating(log_market_data_job, interval=14400, first=60)
+  
     # Start polling
     print("\n" + "="*100)
     print("LEGEND_X TELEGRAM BOT - WEBHOOK MODE")
