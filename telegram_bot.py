@@ -15,7 +15,8 @@ Commands:
 Usage:
     python telegram_bot.py
 """
-
+import csv
+import time
 import json
 import os
 import random
@@ -984,6 +985,76 @@ CVD Delta: <b>{fmt_vol(abs(cvd_delta))}</b> ({'Buyers Dominant' if cvd_delta > 0
             return f"[ERROR] Symbol {symbol} not found on Binance."
         except Exception as e:
             return f"[ERROR] Failed to fetch order flow. {str(e)}"
+          
+    def collect_snapshot(self, symbol="BTC"):
+        """Collects raw indicator data for logging to CSV"""
+        symbol = symbol.upper().replace("/", "").replace("USDT", "")
+        pair = symbol + "USDT"
+        
+        try:
+            # 1. Fetch 4H Klines
+            kline_url = f"https://fapi.binance.com/fapi/v1/klines?symbol={pair}&interval=4h&limit=100"
+            req = urllib.request.Request(kline_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=10) as response:
+                klines = json.loads(response.read().decode())
+            
+            if not klines or len(klines) < 50: return None
+            current_price = float(klines[-1][4])
+
+            # 2. Funding Rate
+            funding_score = 0
+            funding_val = 0.0
+            try:
+                fund_url = f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={pair}"
+                freq = urllib.request.Request(fund_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(freq, timeout=5) as response:
+                    fund_data = json.loads(response.read().decode())
+                funding_val = float(fund_data.get('lastFundingRate', 0))
+                if funding_val > 0.05: funding_score = -2
+                elif funding_val < -0.05: funding_score = 2
+            except: pass
+
+            # 3. Trend Math
+            structure_score = self._calc_structure(klines) or 0
+            adx_score, adx_val = self._calc_adx(klines) or (0, 0)
+            rsi_score, rsi_val = self._calc_rsi(klines) or (0, 0)
+            volume_score = self._calc_volume(klines) or 0
+            wick_score = self._calc_wick(klines[-1]) or 0
+            trend_total = (structure_score * 2) + (adx_score * 2) + (funding_score * 2) + volume_score + rsi_score + wick_score
+
+            # 4. CVD Math (12H)
+            cvd_skew = 0.0
+            try:
+                flow_url = f"https://fapi.binance.com/fapi/v1/klines?symbol={pair}&interval=1m&limit=720"
+                req = urllib.request.Request(flow_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    flow_klines = json.loads(response.read().decode())
+                
+                taker_buy = sum(float(k[10]) for k in flow_klines)
+                total_vol = sum(float(k[7]) for k in flow_klines)
+                taker_sell = total_vol - taker_buy
+                cvd_delta = taker_buy - taker_sell
+                cvd_skew = (cvd_delta / total_vol * 100) if total_vol > 0 else 0
+            except: pass
+
+            return {
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'symbol': symbol,
+                'price': current_price,
+                'trend_score': trend_total,
+                'structure': structure_score,
+                'adx': adx_score,
+                'funding': funding_score,
+                'rsi': rsi_score,
+                'volume': volume_score,
+                'wick': wick_score,
+                'cvd_skew': round(cvd_skew, 2),
+                'funding_rate_pct': round(funding_val * 100, 3)
+            }
+
+        except:
+            return None
+          
 
 # ════════════════════════════════════════════════════════════════════════════════════════════════
 # TELEGRAM COMMAND HANDLERS
