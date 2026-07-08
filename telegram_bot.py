@@ -988,38 +988,26 @@ CVD Delta: <b>{fmt_vol(abs(cvd_delta))}</b> ({'Buyers Dominant' if cvd_delta > 0
             return f"[ERROR] Symbol {symbol} not found on Binance."
         except Exception as e:
             return f"[ERROR] Failed to fetch order flow. {str(e)}"
-          
     def collect_snapshot(self, symbol="BTC"):
         """Collects raw indicator data for logging to CSV"""
         symbol = symbol.upper().replace("/", "").replace("USDT", "")
         pair = symbol + "USDT"
         
         try:
-            # 1. Fetch 4H Klines (Using fapi1 alternative URL)
-            kline_url = f"https://fapi1.binance.com/fapi/v1/klines?symbol={pair}&interval=4h&limit=100"
-            req = urllib.request.Request(kline_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=10) as response:
-                klines = json.loads(response.read().decode())
-            
-            if not klines or len(klines) < 50: 
-                print("[LOGGER] Binance returned empty kline data.")
-                return None
-            
+            # 1. Fetch 4H Klines
+            klines = self._fetch_api(f"https://fapi1.binance.com/fapi/v1/klines?symbol={pair}&interval=4h&limit=100")
+            if not klines or len(klines) < 50: return None
             current_price = float(klines[-1][4])
 
-            # 2. Funding Rate (Using fapi1)
+            # 2. Funding Rate
             funding_score = 0
             funding_val = 0.0
             try:
-                fund_url = f"https://fapi1.binance.com/fapi/v1/premiumIndex?symbol={pair}"
-                freq = urllib.request.Request(fund_url, headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(freq, timeout=5) as response:
-                    fund_data = json.loads(response.read().decode())
+                fund_data = self._fetch_api(f"https://fapi1.binance.com/fapi/v1/premiumIndex?symbol={pair}")
                 funding_val = float(fund_data.get('lastFundingRate', 0))
                 if funding_val > 0.05: funding_score = -2
                 elif funding_val < -0.05: funding_score = 2
-            except Exception as e:
-                print(f"[LOGGER] Funding API Error: {str(e)}")
+            except: pass
 
             # 3. Trend Math
             structure_score = self._calc_structure(klines) or 0
@@ -1029,45 +1017,43 @@ CVD Delta: <b>{fmt_vol(abs(cvd_delta))}</b> ({'Buyers Dominant' if cvd_delta > 0
             wick_score = self._calc_wick(klines[-1]) or 0
             trend_total = (structure_score * 2) + (adx_score * 2) + (funding_score * 2) + volume_score + rsi_score + wick_score
 
-            # 4. CVD Math (Using fapi1)
+            # 4. CVD Math
             cvd_skew = 0.0
             try:
-                flow_url = f"https://fapi1.binance.com/fapi/v1/klines?symbol={pair}&interval=1m&limit=720"
-                req = urllib.request.Request(flow_url, headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(req, timeout=10) as response:
-                    flow_klines = json.loads(response.read().decode())
-                
+                flow_klines = self._fetch_api(f"https://fapi1.binance.com/fapi/v1/klines?symbol={pair}&interval=1m&limit=720")
                 taker_buy = sum(float(k[10]) for k in flow_klines)
                 total_vol = sum(float(k[7]) for k in flow_klines)
-                taker_sell = total_vol - taker_buy
-                cvd_delta = taker_buy - taker_sell
+                cvd_delta = taker_buy - (total_vol - taker_buy)
                 cvd_skew = (cvd_delta / total_vol * 100) if total_vol > 0 else 0
-            except Exception as e:
-                print(f"[LOGGER] CVD API Error: {str(e)}")
+            except: pass
 
             return {
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'symbol': symbol,
-                'price': current_price,
-                'trend_score': trend_total,
-                'structure': structure_score,
-                'adx': adx_score,
-                'funding': funding_score,
-                'rsi': rsi_score,
-                'volume': volume_score,
-                'wick': wick_score,
-                'cvd_skew': round(cvd_skew, 2),
+                'symbol': symbol, 'price': current_price,
+                'trend_score': trend_total, 'structure': structure_score,
+                'adx': adx_score, 'funding': funding_score,
+                'rsi': rsi_score, 'volume': volume_score,
+                'wick': wick_score, 'cvd_skew': round(cvd_skew, 2),
                 'funding_rate_pct': round(funding_val * 100, 3)
             }
-
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode()
-            print(f"[LOGGER] Binance HTTP Error {e.code}: {error_body}")
-            return None
         except Exception as e:
-            print(f"[LOGGER] General Snapshot Error: {str(e)}")
+            print(f"[LOGGER] Snapshot Error: {str(e)}")
             return None
-
+          
+    def _fetch_api(self, url):
+        """Helper to fetch API data with browser-like headers to bypass basic blocks"""
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+            'Accept': 'application/json,application/text',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Connection': 'keep-alive',
+        }
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=15) as response:
+            data = response.read().decode('utf-8')
+            if not data:
+                raise ValueError("API returned empty response")
+            return json.loads(data)
 # ════════════════════════════════════════════════════════════════════════════════════════════════
 # TELEGRAM COMMAND HANDLERS
 # ════════════════════════════════════════════════════════════════════════════════════════════════
