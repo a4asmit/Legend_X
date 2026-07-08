@@ -992,27 +992,31 @@ CVD Delta: <b>{fmt_vol(abs(cvd_delta))}</b> ({'Buyers Dominant' if cvd_delta > 0
         pair = symbol + "USDT"
         
         try:
-            # 1. Fetch 4H Klines
-            kline_url = f"https://fapi.binance.com/fapi/v1/klines?symbol={pair}&interval=4h&limit=100"
+            # 1. Fetch 4H Klines (Using fapi1 alternative URL)
+            kline_url = f"https://fapi1.binance.com/fapi/v1/klines?symbol={pair}&interval=4h&limit=100"
             req = urllib.request.Request(kline_url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=10) as response:
                 klines = json.loads(response.read().decode())
             
-            if not klines or len(klines) < 50: return None
+            if not klines or len(klines) < 50: 
+                print("[LOGGER] Binance returned empty kline data.")
+                return None
+            
             current_price = float(klines[-1][4])
 
-            # 2. Funding Rate
+            # 2. Funding Rate (Using fapi1)
             funding_score = 0
             funding_val = 0.0
             try:
-                fund_url = f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={pair}"
+                fund_url = f"https://fapi1.binance.com/fapi/v1/premiumIndex?symbol={pair}"
                 freq = urllib.request.Request(fund_url, headers={'User-Agent': 'Mozilla/5.0'})
                 with urllib.request.urlopen(freq, timeout=5) as response:
                     fund_data = json.loads(response.read().decode())
                 funding_val = float(fund_data.get('lastFundingRate', 0))
                 if funding_val > 0.05: funding_score = -2
                 elif funding_val < -0.05: funding_score = 2
-            except: pass
+            except Exception as e:
+                print(f"[LOGGER] Funding API Error: {str(e)}")
 
             # 3. Trend Math
             structure_score = self._calc_structure(klines) or 0
@@ -1022,10 +1026,10 @@ CVD Delta: <b>{fmt_vol(abs(cvd_delta))}</b> ({'Buyers Dominant' if cvd_delta > 0
             wick_score = self._calc_wick(klines[-1]) or 0
             trend_total = (structure_score * 2) + (adx_score * 2) + (funding_score * 2) + volume_score + rsi_score + wick_score
 
-            # 4. CVD Math (12H)
+            # 4. CVD Math (Using fapi1)
             cvd_skew = 0.0
             try:
-                flow_url = f"https://fapi.binance.com/fapi/v1/klines?symbol={pair}&interval=1m&limit=720"
+                flow_url = f"https://fapi1.binance.com/fapi/v1/klines?symbol={pair}&interval=1m&limit=720"
                 req = urllib.request.Request(flow_url, headers={'User-Agent': 'Mozilla/5.0'})
                 with urllib.request.urlopen(req, timeout=10) as response:
                     flow_klines = json.loads(response.read().decode())
@@ -1035,7 +1039,8 @@ CVD Delta: <b>{fmt_vol(abs(cvd_delta))}</b> ({'Buyers Dominant' if cvd_delta > 0
                 taker_sell = total_vol - taker_buy
                 cvd_delta = taker_buy - taker_sell
                 cvd_skew = (cvd_delta / total_vol * 100) if total_vol > 0 else 0
-            except: pass
+            except Exception as e:
+                print(f"[LOGGER] CVD API Error: {str(e)}")
 
             return {
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -1052,9 +1057,13 @@ CVD Delta: <b>{fmt_vol(abs(cvd_delta))}</b> ({'Buyers Dominant' if cvd_delta > 0
                 'funding_rate_pct': round(funding_val * 100, 3)
             }
 
-        except:
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode()
+            print(f"[LOGGER] Binance HTTP Error {e.code}: {error_body}")
             return None
-          
+        except Exception as e:
+            print(f"[LOGGER] General Snapshot Error: {str(e)}")
+            return None
 
 # ════════════════════════════════════════════════════════════════════════════════════════════════
 # TELEGRAM COMMAND HANDLERS
