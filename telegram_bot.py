@@ -169,7 +169,7 @@ be cautious when everyone is greedy.</i>
 
     def _fetch_top_coins(self, coin_type):
         try:
-            url = "https://fapi.binance.com/fapi/v1/ticker/24hr"
+            url = "https://fapi1.binance.com/fapi/v1/ticker/24hr"
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=15) as response:
                 data = json.loads(response.read().decode())
@@ -221,7 +221,7 @@ be cautious when everyone is greedy.</i>
 
     def _fetch_top_volume(self):
         try:
-            url = "https://fapi.binance.com/fapi/v1/ticker/24hr"
+            url = "https://fapi1.binance.com/fapi/v1/ticker/24hr"
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=15) as response:
                 data = json.loads(response.read().decode())
@@ -271,7 +271,7 @@ be cautious when everyone is greedy.</i>
         
         # --- ATTEMPT 1: BINANCE 6-FACTOR TA ---
         try:
-            kline_url = f"https://fapi.binance.com/fapi/v1/klines?symbol={binance_symbol}&interval=4h&limit=100"
+            kline_url = f"https://fapi1.binance.com/fapi/v1/klines?symbol={binance_symbol}&interval=4h&limit=100"
             req = urllib.request.Request(kline_url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=10) as response:
                 klines = json.loads(response.read().decode())
@@ -283,7 +283,7 @@ be cautious when everyone is greedy.</i>
             funding_score = 0
             funding_val = 0.0
             try:
-                fund_url = f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={binance_symbol}"
+                fund_url = f"https://fapi1.binance.com/fapi/v1/premiumIndex?symbol={binance_symbol}"
                 freq = urllib.request.Request(fund_url, headers={'User-Agent': 'Mozilla/5.0'})
                 with urllib.request.urlopen(freq, timeout=5) as response:
                     fund_data = json.loads(response.read().decode())
@@ -611,7 +611,7 @@ Verdict: <b>{verdict}</b> (Score: {total_score}/5)
         try:
             # 1. Fetch Open Interest
             try:
-                oi_url = f"https://fapi.binance.com/fapi/v1/openInterest?symbol={pair}"
+                oi_url = f"https://fapi1.binance.com/fapi/v1/openInterest?symbol={pair}"
                 req_oi = urllib.request.Request(oi_url, headers={'User-Agent': 'Mozilla/5.0'})
                 with urllib.request.urlopen(req_oi, timeout=10) as response:
                     oi_data = json.loads(response.read().decode())
@@ -621,7 +621,7 @@ Verdict: <b>{verdict}</b> (Score: {total_score}/5)
 
             # 2. Fetch Current Price (Futures Mark Price - Safer than Spot for this)
             try:
-                price_url = f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={pair}"
+                price_url = f"https://fapi1.binance.com/fapi/v1/ticker/price?symbol={pair}"
                 req_price = urllib.request.Request(price_url, headers={'User-Agent': 'Mozilla/5.0'})
                 with urllib.request.urlopen(req_price, timeout=10) as response:
                     price_data = json.loads(response.read().decode())
@@ -633,7 +633,7 @@ Verdict: <b>{verdict}</b> (Score: {total_score}/5)
             
             # 3. Fetch Top Trader Long/Short Ratio (Accounts)
             try:
-                ls_url = f"https://fapi.binance.com/futures/data/topLongShortAccountRatio?symbol={pair}&period=5m&limit=1"
+                ls_url = f"https://fapi1.binance.com/futures/data/topLongShortAccountRatio?symbol={pair}&period=5m&limit=1"
                 req_ls = urllib.request.Request(ls_url, headers={'User-Agent': 'Mozilla/5.0'})
                 with urllib.request.urlopen(req_ls, timeout=10) as response:
                     ls_data = json.loads(response.read().decode())
@@ -645,7 +645,7 @@ Verdict: <b>{verdict}</b> (Score: {total_score}/5)
             
             # 4. Fetch Funding Rate
             try:
-                fund_url = f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={pair}"
+                fund_url = f"https://fapi1.binance.com/fapi/v1/premiumIndex?symbol={pair}"
                 req_fund = urllib.request.Request(fund_url, headers={'User-Agent': 'Mozilla/5.0'})
                 with urllib.request.urlopen(req_fund, timeout=10) as response:
                     fund_data = json.loads(response.read().decode())
@@ -708,7 +708,7 @@ Funding Rate: {fund_str}
         
         try:
             # 1. Fetch deep Order Book
-            depth_url = f"https://fapi.binance.com/fapi/v1/depth?symbol={pair}&limit=1000"
+            depth_url = f"https://fapi1.binance.com/fapi/v1/depth?symbol={pair}&limit=1000"
             req = urllib.request.Request(depth_url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=15) as response:
                 depth_data = json.loads(response.read().decode())
@@ -897,7 +897,7 @@ Funding Rate: {fund_str}
         
         try:
             # 1. Fetch 12 Hours of 1-Minute Klines (720 candles)
-            kline_url = f"https://fapi.binance.com/fapi/v1/klines?symbol={pair}&interval=1m&limit=720"
+            kline_url = f"https://fapi1.binance.com/fapi/v1/klines?symbol={pair}&interval=1m&limit=720"
             req = urllib.request.Request(kline_url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=10) as response:
                 klines = json.loads(response.read().decode())
