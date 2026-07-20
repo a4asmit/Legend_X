@@ -382,7 +382,7 @@ class LegendXBot:
             if not csv_file.exists():
                 with open(csv_file, 'w', newline='', encoding='utf-8') as f: csv.DictWriter(f, fieldnames=data.keys()).writeheader()
             with open(csv_file, 'a', newline='', encoding='utf-8') as f: csv.DictWriter(f, fieldnames=data.keys()).writerow(data)
-            print(f"✓ Logged {data['symbol']} snapshot")
+            print(f"Logged {data['symbol']} snapshot")
         except: pass
 
 # ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -429,7 +429,7 @@ async def flow_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def log_market_data_job(context: ContextTypes.DEFAULT_TYPE):
     try:
-        print("📊 Running data logging job...")
+        print("Running data logging job...")
         bot = LegendXBot()
         for symbol in ["BTC", "ETH", "SOL", "ADA"]:
             snapshot = bot.collect_snapshot(symbol=symbol)
@@ -466,10 +466,10 @@ def main():
         job_queue = application.job_queue
         if job_queue:
             job_queue.run_repeating(log_market_data_job, interval=14400, first=60)
-            print("✓ Market logging job scheduled (every 4 hours)")
+            print("Market logging job scheduled (every 4 hours)")
     except: pass
     
-    print("✓ Bot started! Listening for commands...\n" + "="*100 + "\n")
+    print("Bot started! Listening for commands...\n" + "="*100 + "\n")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
